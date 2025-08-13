@@ -16,9 +16,9 @@ and adds latest observations from:
 
 To do:
 ------
-- retreive latest forecast instead of "old forecast" 6h ago (Goggle model has some latency)
+- retreive latest forecast instead of "old forecast" 6h ago (Google model has some latency)
 - include the past (historical) forecast hours if available for the individual models
-- save forecasts and observations as a database to compare
+- save forecasts and observations as a database to compare longer time series
 - compare to more/other ground truth measurements (Get data from the RMHPA station?)
 
 - extend the comparison (upper level winds? more spatial variability? other ideas?)

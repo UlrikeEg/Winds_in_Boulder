@@ -1,0 +1,12 @@
+[workspace]
+restore_data_on_startup = True
+save_data_on_exit = True
+save_history = True
+save_non_project_files = False
+project_type = 'empty-project-type'
+recent_files = ['..\\..\\..\\.spyder-py3\\temp.py', '..\\..\\..\\Desktop\\SIPS 2024\\Sandia\\HRRR_vs_obs.py', '..\\..\\..\\Desktop\\SIPS 2024\\analysis\\Donwload_METAR_data.py', 'wind_data_comp.py']
+
+[main]
+version = 0.2.0
+recent_files = []
+

@@ -45,6 +45,45 @@ HOURS =  45   # maximum forecast time for HRRR and Google
 
 ### HRRR
 
+def download_hrrr_grib2_subset(forecast_hour, variable="sfc", 
+                               min_lat= 0, max_lat = 360, 
+                               min_lon = 0, max_lon = 90):
+    """
+    Download HRRR GRIB2 file for a given forecast hour.
+    Example path: Surface files:
+                  https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl?dir=%2Fhrrr.20250813%2Fconus&file=hrrr.t00z.wrfsfcf00.grib2&var_WIND=on&lev_8_m_above_ground=on&lev_10_m_above_ground=on
+
+                  Subhourly files:
+                  https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_sub.pl?dir=%2Fhrrr.20250813%2Fconus&file=hrrr.t00z.wrfsubhf01.grib2&var_WIND=on&lev_10_m_above_ground=on&subregion=&toplat=45&leftlon=275&rightlon=276&bottomlat=44
+    """
+    
+    if variable == "sfc":
+        base_url = "https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_2d.pl?dir=%2F"
+    elif  variable == "subh":
+        base_url = "https://nomads.ncep.noaa.gov/cgi-bin/filter_hrrr_sub.pl?dir=%2F"
+    date = START.strftime("%Y%m%d")
+    hour = START.strftime("%H")
+    fhr = f"{forecast_hour:02d}"
+    variable_filter = "&var_GUST=on&var_TMP=on&var_UGRD=on&var_VGRD=on&var_WIND=on"
+    spatial_filter = f"&subregion=&toplat={max_lat}&leftlon={min_lon}&rightlon={max_lon}&bottomlat={min_lat}"
+    url = f"{base_url}hrrr.{date}%2Fconus&file=hrrr.t{hour}z.wrf{variable}f{fhr}.grib2"+variable_filter+spatial_filter
+    response = requests.get(url, stream=True)
+    if response.status_code == 200:
+        fd, tmp_path = tempfile.mkstemp(suffix=".grib2")
+        with os.fdopen(fd, "wb") as out:
+            out.write(response.content)
+        return tmp_path
+    else:
+        print (response)
+        return None
+    
+    grib_path = download_hrrr_grib2_subset(fh)
+    
+    grbs = pygrib.open(grib_path)
+    for grb in grbs:
+        print(grb)
+    
+
 def download_hrrr_grib2(forecast_hour, variable="sfc"):
     """
     Download HRRR GRIB2 file for a given forecast hour.
@@ -73,8 +112,8 @@ def extract_hrrr_variable(grib_path, variable, level=None):
     level: 'surface' or height in meters AGL (e.g., 1000)
     """
     
-    # import cfgrib
-    # grbs = pygrib.open(tmp_path)
+    # # to inspect variables:
+    # grbs = pygrib.open(grib_path)
     # for grb in grbs:
     #     print(grb)
     # for grb in grbs:
@@ -107,16 +146,22 @@ def extract_hrrr_variable(grib_path, variable, level=None):
     grbs.close()
     return np.mean(val) if val else np.nan
 
-def get_hrrr_series():
+def get_hrrr_series(lat, lon):
     """
     Download and extract 48h HRRR forecast at Boulder, CO.
     Returns DataFrame with time, wind speeds and directions at surface and 1000m, and surface temperature.
     """
+    if lon < 0:
+        lon = lon+360
+    
     times, wind_sfc, wind_1000m, temp_sfc = [], [], [], []
     wind_dir_sfc, wind_dir_1000m = [], []
     for fh in range(1, HOURS+1):
         print(f"Processing HRRR fh={fh}")
-        grib_path = download_hrrr_grib2(fh)
+        grib_path = download_hrrr_grib2_subset(fh, variable="sfc", 
+                                               min_lat= np.floor(lat), max_lat = np.ceil(lat), 
+                                               min_lon = np.floor(lon), max_lon = np.ceil(lon))
+        #grib_path = download_hrrr_grib2(fh, variable="sfc")   # this loads the entire grib file (entire spatial extend and all variables)
         # print(grib_path)
         if not grib_path:
             wind_sfc.append(np.nan)
@@ -421,7 +466,7 @@ meteomatics_df = fetch_meteomatics(
 
 # Fetch HRRR data
 print("Fetching HRRR data...")
-hrrr_df = get_hrrr_series()
+hrrr_df = get_hrrr_series(lat = LAT, lon = LON)
 
 
 # Fetch tomorrow.io
