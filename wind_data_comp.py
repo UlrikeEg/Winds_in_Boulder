@@ -20,6 +20,8 @@ from access_keys import *       # This includes all access keys for model data a
 
 # Coordinates for Boulder, CO (paragliding hill)
 LAT, LON = 40.056731120064015, -105.30018040686129
+LAT, LON = 34.962400, -106.510100 # Sandia
+
 
 
 #Model initiation time
@@ -76,12 +78,7 @@ def download_hrrr_grib2_subset(forecast_hour, variable="sfc",
     else:
         print (response)
         return None
-    
-    grib_path = download_hrrr_grib2_subset(fh)
-    
-    grbs = pygrib.open(grib_path)
-    for grb in grbs:
-        print(grb)
+
     
 
 def download_hrrr_grib2(forecast_hour, variable="sfc"):
@@ -511,6 +508,7 @@ fig, axs = plt.subplots(4, 1, figsize=(14, 9), sharex=True)
 #!!! add initialization times seperately for each model
 
 # --- Surface Wind ---
+axs[0].plot(hrrr_df.times, hrrr_df.wspd10, color = "red")
 axs[0].plot(df["time"], df["hrrr_wind_sfc"], label="HRRR")
 axs[0].plot(df["time"], df["meteomatics_wind_10m"], label="Meteomatics")
 axs[0].plot(df["time"], df["tomorrowio_wind_speed"], label="Tomorrow.io")  
