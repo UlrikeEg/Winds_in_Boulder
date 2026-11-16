@@ -68,7 +68,7 @@ def read_metar(station, start_year, start_month, start_day, end_year, end_month,
 def read_synoptic(station_ids = ["BLD02","F7730"], synoptic_api_key = ""):
     
         
-    #  https://api.synopticdata.com/v2/stations/timeseries?&token=efcf120a17ce45fba323a19de7b6a3f6&start=202508070000&end=202508080000&timeformat=%Y%m%d-%H%M&obtimezone=utc&units=metric&output=csv&stid=BLD02
+    #  https://api.synopticdata.com/v2/stations/timeseries?&token=YOUR_TOKEN&start=202508070000&end=202508080000&timeformat=%Y%m%d-%H%M&obtimezone=utc&units=metric&output=csv&stid=BLD02
 
     
     # Define the API URL

@@ -213,46 +213,27 @@ def init_ee():
         ee.Authenticate()
         ee.Initialize(project=ee_project)
 
-def get_weathernext_series(model_type):
+def get_weathernext_series():
     """
-    Download WeatherNExt (GraphCast or GeCat) series for Boulder, CO.
-    model_type: GenCast or GraphCast
-    var_dict: {output_name: gee_band}
-    
-        
-    See documentation at :
-        https://developers.google.com/earth-engine/datasets/catalog/projects_gcp-public-data-weathernext_assets_126478713_1_0#description
-        https://developers.google.com/earth-engine/datasets/catalog/projects_gcp-public-data-weathernext_assets_59572747_4_0#description
-    
-    
-    GraphCast: Forecast init times have 6 hour resolution (00z, 06z, 12z, 18z). Forecast lead times have 6 hour resolution up to a max lead time of 10 days.
-    GenCast: Forecast init times have 6 hour resolution (00z, 06z, 12z, 18z). Forecast lead times have 12 hour resolution up to a max lead time of 15 days.
-    
-    graphcast_df = get_weathernext_series(collection_id = graphcast_id)
-    gecat_df = get_weathernext_series(collection_id = gecat_id)
-    
-    """
-    
-    
-    if model_type == "GraphCast":
-        collection_id = "projects/gcp-public-data-weathernext/assets/59572747_4_0"  # GEE asset type
-        forecast_hours = np.arange(0,HOURS,6) # GraphCast
-    elif model_type == "GenCast":
-        collection_id= "projects/gcp-public-data-weathernext/assets/126478713_1_0"  # GEE asset type
-        forecast_hours = np.arange(0,HOURS,12) # GenCast
-        #!!! Decide how to handle the ensemble members of GenCast. Currently just using one member. Make the average?
-    else:
-        print ("Model type not known, should be 'GraphCast' or 'GenCast'.")
-        return
+    Download the WeatherNext 2 ensemble-mean forecast (Google DeepMind) for the point (LAT, LON) via Earth Engine.
 
-    var_dict = {  # Same variables/ bands for gencast and graphcast
-        "u_10m": "10m_u_component_of_wind",  # 10m wind   
-        "u_1000m": "1000_u_component_of_wind",  # wind at 1000m  
-        "v_10m": "10m_v_component_of_wind",  # 10m wind   
-        "v_1000m": "1000_v_component_of_wind",  # wind at 1000m   
-        "temp_2m": "2m_temperature"  # 2m temp   
+    WeatherNext 2 replaces the retired GraphCast (59572747_4_0) and GenCast (126478713_1_0) Earth Engine datasets.
+    See https://developers.google.com/earth-engine/datasets/catalog/projects_gcp-public-data-weathernext_assets_weathernext_2_0_0_mean
+
+    Forecast init times have 6 hour resolution (00z, 06z, 12z, 18z). Lead times have 6 hour resolution up to 15 days.
+    The ensemble mean is used; the full 64-member ensemble is in projects/gcp-public-data-weathernext/assets/weathernext_2_0_0.
+    """
+
+    collection_id = "projects/gcp-public-data-weathernext/assets/weathernext_2_0_0_mean"
+
+    var_dict = {  # {output_name: band}
+        "u_10m": "10m_u_component_of_wind",    # 10m wind
+        "v_10m": "10m_v_component_of_wind",
+        "u_1000m": "850_u_component_of_wind",  # 850 hPa wind (same level as used for HRRR)
+        "v_1000m": "850_v_component_of_wind",
+        "temp_2m": "2m_temperature"            # 2m temp
     }
-     
+
     # Initalize google earth engine (GEE)
     init_ee()
     
@@ -263,19 +244,12 @@ def get_weathernext_series(model_type):
     times = []
     results = {k: [] for k in var_dict}
     
-    # Load an ImageCollection from Earth Engine specified by collection_id at START initialization time           
-    if model_type == "GraphCast":
-        imgcoll = ee.ImageCollection(collection_id)  \
-                .filter(ee.Filter.date(START.isoformat()))\
-                .filter(ee.Filter.bounds(point))
-    elif model_type == "GenCast":
-        imgcoll = ee.ImageCollection(collection_id)  \
-                .filter(ee.Filter.date(START.isoformat()))\
-                .filter(ee.Filter.bounds(point))\
-                .filter(ee.Filter.eq('ensemble_member', '0'))   
-                # .filter(ee.Filter.eq('forecast_hour', forecast_hours))  # !!! Works with one forecast hour, but not with multiple
-                 
-        
+    # Load the forecast images for the START initialization time, keep only forecast hours within HOURS
+    imgcoll = ee.ImageCollection(collection_id)  \
+            .filter(ee.Filter.date(START.isoformat()))\
+            .filter(ee.Filter.bounds(point))\
+            .filter(ee.Filter.lte('forecast_hour', HOURS))
+
     # Convert the filtered collection into a list
     imglist = imgcoll.toList(imgcoll.size())   
     
@@ -480,21 +454,16 @@ tomorrow_df = safe_fetch("Tomorrow.io", get_tomorrowio_series, lat = LAT, lon = 
 # Google models
 START = START - timedelta(hours = 6)   # !!! to be sure that data is available. Replace by last available data.
 
-print("Fetching GraphCast (WeatherNext) data...")
-graphcast_df = safe_fetch("GraphCast", get_weathernext_series, "GraphCast")
-
-print("Fetching GenCast (WeatherNext) data...")
-gencast_df = safe_fetch("GenCast", get_weathernext_series, model_type = "GenCast")
+print("Fetching WeatherNext 2 (Google DeepMind) data...")
+weathernext_df = safe_fetch("WeatherNext 2", get_weathernext_series)
 
 START = START + timedelta(hours = 6)   # !!! remove later
 
 
 ### Merge all available models on time
 frames = [d for d in [hrrr_df, meteomatics_df, tomorrow_df] if d is not None]
-if gencast_df is not None:
-    frames.append(gencast_df.add_prefix("gencast_").rename(columns = {"gencast_time": "time"}))
-if graphcast_df is not None:
-    frames.append(graphcast_df.add_prefix("graphcast_").rename(columns = {"graphcast_time": "time"}))
+if weathernext_df is not None:
+    frames.append(weathernext_df.add_prefix("weathernext_").rename(columns = {"weathernext_time": "time"}))
 if not frames:
     raise SystemExit("No model data could be fetched, nothing to plot.")
 
@@ -535,23 +504,20 @@ def plot_obs(ax, col, style = "-"):
 plot_col(axs[0], "hrrr_wind_sfc", "HRRR")
 plot_col(axs[0], "meteomatics_wind_10m", "Meteomatics")
 plot_col(axs[0], "tomorrowio_wind_speed", "Tomorrow.io")
-plot_col(axs[0], "graphcast_wind_10m", "GraphCast", ".")
-plot_col(axs[0], "gencast_wind_10m", "GenCast", ".")
+plot_col(axs[0], "weathernext_wind_10m", "WeatherNext 2 (mean)", "o-")
 plot_obs(axs[0], "windspeed")
 axs[0].set_ylabel("Surface Wind (m/s)")
 
 # --- 1000m Wind ---
 plot_col(axs[1], "hrrr_wind_1000m", "HRRR")
-plot_col(axs[1], "graphcast_wind_1000m", "GraphCast", ".")
-plot_col(axs[1], "gencast_wind_1000m", "GenCast", ".")
-axs[1].set_ylabel("1000m Wind (m/s)")
+plot_col(axs[1], "weathernext_wind_1000m", "WeatherNext 2 (mean)", "o-")
+axs[1].set_ylabel("850 hPa Wind (m/s)")
 
 # --- Surface Temp ---
 plot_col(axs[2], "hrrr_temp_sfc", "HRRR")
 plot_col(axs[2], "meteomatics_temp_2m", "Meteomatics")
 plot_col(axs[2], "tomorrowio_temp", "Tomorrow.io")
-plot_col(axs[2], "graphcast_temp_2m", "GraphCast", ".")
-plot_col(axs[2], "gencast_temp_2m", "GenCast", ".")
+plot_col(axs[2], "weathernext_temp_2m", "WeatherNext 2 (mean)", "o-")
 plot_obs(axs[2], "temperature")
 axs[2].set_ylabel("Surface Temp (°C)")
 
@@ -559,8 +525,7 @@ axs[2].set_ylabel("Surface Temp (°C)")
 plot_col(axs[3], "hrrr_dir_sfc", "HRRR", ".")
 plot_col(axs[3], "meteomatics_wdir_10m", "Meteomatics", ".")
 plot_col(axs[3], "tomorrowio_wind_dir", "Tomorrow.io", ".")
-plot_col(axs[3], "graphcast_wind_dir_10m", "GraphCast", ".")
-plot_col(axs[3], "gencast_wind_dir_10m", "GenCast", ".")
+plot_col(axs[3], "weathernext_wind_dir_10m", "WeatherNext 2 (mean)", "o-")
 plot_obs(axs[3], "winddirection", ".")
 axs[3].set_ylabel("10m Wind Dir (°)")
 
