@@ -453,116 +453,124 @@ def fetch_meteomatics(lat, lon, start, hours, username, password):
 
 #%% Main program
 
-# Fetch Meteomatics
+def safe_fetch(name, func, *args, **kwargs):
+    """Run one data fetch; if it fails or returns nothing, report it and return None instead of stopping the script."""
+    try:
+        df = func(*args, **kwargs)
+        if df is None or len(df) == 0:
+            raise ValueError("no data returned")
+        print(f"  {name}: OK ({len(df)} rows)")
+        return df
+    except Exception as e:
+        print(f"  {name}: FAILED, skipped ({type(e).__name__}: {e})")
+        return None
+
+
 print("Fetching Meteomatics 10m wind forecast...")
-meteomatics_df = fetch_meteomatics(
-    LAT, LON, START, HOURS, 
-    username = meteomatics_user, 
-    password = meteomatics_pw
-)
+meteomatics_df = safe_fetch("Meteomatics", fetch_meteomatics, LAT, LON, START, HOURS,
+                            username = meteomatics_user, password = meteomatics_pw)
 
-# Fetch HRRR data
 print("Fetching HRRR data...")
-hrrr_df = get_hrrr_series(lat = LAT, lon = LON)
+hrrr_df = safe_fetch("HRRR", get_hrrr_series, lat = LAT, lon = LON)
 
-
-# Fetch tomorrow.io
 print("Fetching Tomorrow.io data...")
-tomorrow_df = get_tomorrowio_series(lat = LAT, lon = LON, 
-                           start_time = START, 
-                           hours = HOURS,
-                           key = TOMORROW_IO_API_KEY)
+tomorrow_df = safe_fetch("Tomorrow.io", get_tomorrowio_series, lat = LAT, lon = LON,
+                         start_time = START, hours = HOURS, key = TOMORROW_IO_API_KEY)
 
-# Google models  
-
+# Google models
 START = START - timedelta(hours = 6)   # !!! to be sure that data is available. Replace by last available data.
 
 print("Fetching GraphCast (WeatherNext) data...")
-graphcast_df = get_weathernext_series("GraphCast")  
+graphcast_df = safe_fetch("GraphCast", get_weathernext_series, "GraphCast")
 
-print("Fetching GenCat (WeatherNext) data...")
-gecat_df = get_weathernext_series(model_type = "GenCast")
+print("Fetching GenCast (WeatherNext) data...")
+gencast_df = safe_fetch("GenCast", get_weathernext_series, model_type = "GenCast")
 
 START = START + timedelta(hours = 6)   # !!! remove later
 
 
+### Merge all available models on time
+frames = [d for d in [hrrr_df, meteomatics_df, tomorrow_df] if d is not None]
+if gencast_df is not None:
+    frames.append(gencast_df.add_prefix("gencast_").rename(columns = {"gencast_time": "time"}))
+if graphcast_df is not None:
+    frames.append(graphcast_df.add_prefix("graphcast_").rename(columns = {"graphcast_time": "time"}))
+if not frames:
+    raise SystemExit("No model data could be fetched, nothing to plot.")
 
-### Merge all on time
-df = hrrr_df.merge(meteomatics_df, on="time", how="outer")  \
-            .merge(tomorrow_df, on="time", how="outer") \
-            .merge(gecat_df.add_prefix("gencast_"), left_on="time", right_on = "gencast_time", how="outer") \
-            .merge(graphcast_df.add_prefix("graphcast_"), left_on="time", right_on = "graphcast_time", how="outer")
-df = df.sort_values("time").reset_index(drop=True)
+df = frames[0]
+for f in frames[1:]:
+    df = df.merge(f, on = "time", how = "outer")
+df = df.sort_values("time").reset_index(drop = True)
 
 
-
-### Get observation data
-obs = read_synoptic(station_ids = [ "F7730"], synoptic_api_key = synoptic_api_key)  # "BLD02","F7730", "F1714", "ATC01","WXM8571" are other stations in Boulder
+### Get observation data (optional: skipped if there is no Synoptic key or the request fails)
+obs = None
+if synoptic_api_key:
+    print("Fetching Synoptic observations...")
+    obs = safe_fetch("Synoptic observations", read_synoptic, station_ids = ["F7730"], synoptic_api_key = synoptic_api_key)  # "BLD02","F7730", "F1714", "ATC01","WXM8571" are other stations in Boulder
+else:
+    print("No Synoptic key, skipping observations.")
 
 
 
 #%% Plot
 fig, axs = plt.subplots(4, 1, figsize=(14, 9), sharex=True)
 
+def plot_col(ax, col, label, style = "-"):
+    """Plot a model column only if that model returned data."""
+    if col in df.columns and df[col].notna().any():
+        ax.plot(df["time"], df[col], style, label = label)
+
+def plot_obs(ax, col, style = "-"):
+    if obs is None:
+        return
+    for station_id in obs.index.levels[0]:
+        station_data = obs.loc[station_id]
+        ax.plot(station_data[col], style, color = "black", label = "Obs " + station_data.iloc[0].stid)
 
 #!!! add initialization times seperately for each model
 
 # --- Surface Wind ---
-axs[0].plot(hrrr_df.times, hrrr_df.wspd10, color = "red")
-axs[0].plot(df["time"], df["hrrr_wind_sfc"], label="HRRR")
-axs[0].plot(df["time"], df["meteomatics_wind_10m"], label="Meteomatics")
-axs[0].plot(df["time"], df["tomorrowio_wind_speed"], label="Tomorrow.io")  
-axs[0].plot(df["time"], df["graphcast_wind_10m"], ".", label="Graphcast")
-axs[0].plot(df["time"], df["gencast_wind_10m"], ".", label="Gencast")
-for station_id in obs.index.levels[0]:
-    station_data = obs.loc[station_id]
-    axs[0].plot(station_data.windspeed, "-", color = "black", label = "Obs " +station_data.iloc[0].stid)
+plot_col(axs[0], "hrrr_wind_sfc", "HRRR")
+plot_col(axs[0], "meteomatics_wind_10m", "Meteomatics")
+plot_col(axs[0], "tomorrowio_wind_speed", "Tomorrow.io")
+plot_col(axs[0], "graphcast_wind_10m", "GraphCast", ".")
+plot_col(axs[0], "gencast_wind_10m", "GenCast", ".")
+plot_obs(axs[0], "windspeed")
 axs[0].set_ylabel("Surface Wind (m/s)")
-axs[0].legend()
-axs[0].grid()
-axs[0].axvline(START, color = "grey")
 
 # --- 1000m Wind ---
-axs[1].plot(df["time"], df["hrrr_wind_1000m"], label="HRRR")
-axs[1].plot(np.nan, np.nan, label="")
-axs[1].plot(np.nan, np.nan,  label="")  
-axs[1].plot(df["time"], df["graphcast_wind_1000m"], ".", label="Graphcast")
-axs[1].plot(df["time"], df["gencast_wind_1000m"], ".", label="Gencast")
+plot_col(axs[1], "hrrr_wind_1000m", "HRRR")
+plot_col(axs[1], "graphcast_wind_1000m", "GraphCast", ".")
+plot_col(axs[1], "gencast_wind_1000m", "GenCast", ".")
 axs[1].set_ylabel("1000m Wind (m/s)")
-axs[1].legend()
-axs[1].grid()
-axs[1].axvline(START, color = "grey")
 
 # --- Surface Temp ---
-axs[2].plot(df["time"], df["hrrr_temp_sfc"], label="HRRR")
-axs[2].plot(df["time"], df["meteomatics_temp_2m"], label="Meteomatics")
-axs[2].plot(df["time"], df["tomorrowio_temp"], label="Tomorrow.io") 
-axs[2].plot(df["time"], df["graphcast_temp_2m"], ".", label="Graphcast")
-axs[2].plot(df["time"], df["gencast_temp_2m"], ".", label="Gencast")
-for station_id in obs.index.levels[0]:
-    station_data = obs.loc[station_id]
-    axs[2].plot(station_data.temperature, "-", color = "black", label = "Obs " +station_data.iloc[0].stid)
+plot_col(axs[2], "hrrr_temp_sfc", "HRRR")
+plot_col(axs[2], "meteomatics_temp_2m", "Meteomatics")
+plot_col(axs[2], "tomorrowio_temp", "Tomorrow.io")
+plot_col(axs[2], "graphcast_temp_2m", "GraphCast", ".")
+plot_col(axs[2], "gencast_temp_2m", "GenCast", ".")
+plot_obs(axs[2], "temperature")
 axs[2].set_ylabel("Surface Temp (°C)")
-axs[2].legend()
-axs[2].grid()
-axs[2].axvline(START, color = "grey")
 
 # --- Wind Direction ---
-axs[3].plot(df["time"], df["hrrr_dir_1000m"], ".", label="HRRR")
-axs[3].plot(df["time"], df["meteomatics_wdir_10m"], ".", label="Meteomatics")
-axs[3].plot(df["time"], df["tomorrowio_wind_dir"], ".", label="Tomorrow.io")  
-axs[3].plot(df["time"], df["graphcast_wind_dir_10m"], ".", label="Graphcast")
-axs[3].plot(df["time"], df["gencast_wind_dir_10m"], ".", label="Gencast")
-for station_id in obs.index.levels[0]:
-    station_data = obs.loc[station_id]
-    axs[3].plot(station_data.winddirection, ".", color = "black", label = "Obs " +station_data.iloc[0].stid)
+plot_col(axs[3], "hrrr_dir_sfc", "HRRR", ".")
+plot_col(axs[3], "meteomatics_wdir_10m", "Meteomatics", ".")
+plot_col(axs[3], "tomorrowio_wind_dir", "Tomorrow.io", ".")
+plot_col(axs[3], "graphcast_wind_dir_10m", "GraphCast", ".")
+plot_col(axs[3], "gencast_wind_dir_10m", "GenCast", ".")
+plot_obs(axs[3], "winddirection", ".")
 axs[3].set_ylabel("10m Wind Dir (°)")
-axs[3].legend()
-axs[3].grid()
-axs[3].axvline(START, color = "grey")
+
+for ax in axs:
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend()
+    ax.grid()
+    ax.axvline(START, color = "grey")
 
 axs[3].set_xlabel("Time (UTC)")
 plt.suptitle("Boulder, CO: Model comparison")
 plt.tight_layout()
 plt.savefig("example_comparison.png", dpi=150)   # figure shown in the README
-
