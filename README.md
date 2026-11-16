@@ -1,10 +1,12 @@
 # Winds in Boulder
 
-A Python tool that compares point forecasts of surface wind (plus 1000 m wind, 2 m temperature, and wind direction) for a single location near Boulder, CO, from five forecast models, and plots them against the latest station observations.
+A Python tool that compares point forecasts of surface wind (plus 850 hPa wind, 2 m temperature, and wind direction) for a single location near Boulder, CO, from several forecast models, and plots them against the latest station observations. If one source fails (expired key, outage), it is skipped and the rest still run.
 
 I built it to see how the new AI weather models compare with conventional and commercial downscaled models for local wind, which is what matters for flying (paragliding) in the Front Range.
 
 ![Example model comparison](example_comparison.png)
+
+*Example run from 16 Nov 2026. Meteomatics is missing because the trial key had expired.*
 
 ## Forecast sources
 
@@ -13,8 +15,9 @@ I built it to see how the new AI weather models compare with conventional and co
 | [HRRR](https://rapidrefresh.noaa.gov/hrrr/) (NOAA) | Physics-based, convection-allowing, North America only | 3 km |
 | [Meteomatics US](https://www.meteomatics.com/en/weather-model-us/) | Commercial downscaled model | 1 km |
 | [tomorrow.io](https://www.tomorrow.io/blog/how-does-the-technology-behind-tomorrow-io-work/) | Commercial downscaled model | ~2 km (model description is not fully clear) |
-| [GraphCast](https://deepmind.google/science/weathernext/#access-weathernext) (Google DeepMind, via WeatherNext / Earth Engine) | AI, deterministic, global | ~25 km |
-| [GenCast](https://deepmind.google/science/weathernext/#access-weathernext) (Google DeepMind, via WeatherNext / Earth Engine) | AI, ensemble, global | ~25 km |
+| [WeatherNext 2](https://developers.google.com/earth-engine/datasets/catalog/projects_gcp-public-data-weathernext_assets_weathernext_2_0_0_mean) (Google DeepMind, via Earth Engine) | AI, 64-member ensemble (mean used), global | ~28 km |
+
+Earlier versions used Google DeepMind's GraphCast and GenCast, which have since been replaced by WeatherNext 2 in Earth Engine.
 
 ## Observations
 
