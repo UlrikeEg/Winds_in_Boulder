@@ -486,10 +486,14 @@ else:
 #%% Plot
 fig, axs = plt.subplots(4, 1, figsize=(14, 9), sharex=True)
 
+# Fixed color per model, so a model keeps its color in every panel even if another model is missing
+colors = {"HRRR": "tab:blue", "Meteomatics": "tab:purple", "Tomorrow.io": "tab:orange", "WeatherNext 2 (mean)": "tab:green"}
+
 def plot_col(ax, col, label, style = "-"):
     """Plot a model column only if that model returned data."""
     if col in df.columns and df[col].notna().any():
-        ax.plot(df["time"], df[col], style, label = label)
+        d = df[["time", col]].dropna()
+        ax.plot(d["time"], d[col], style, label = label, color = colors.get(label))
 
 def plot_obs(ax, col, style = "-"):
     if obs is None:
@@ -535,6 +539,7 @@ for ax in axs:
     ax.grid()
     ax.axvline(START, color = "grey")
 
+axs[3].set_xlim(START - timedelta(hours = 24), START + timedelta(hours = HOURS))   # last day of observations + forecast window
 axs[3].set_xlabel("Time (UTC)")
 plt.suptitle("Boulder, CO: Model comparison")
 plt.tight_layout()
