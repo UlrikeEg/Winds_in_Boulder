@@ -484,7 +484,7 @@ else:
 
 
 #%% Plot
-fig, axs = plt.subplots(4, 1, figsize=(14, 9), sharex=True)
+fig, axs = plt.subplots(4, 1, figsize=(16, 9), sharex=True)
 
 # Fixed color per model, so a model keeps its color in every panel even if another model is missing
 colors = {"HRRR": "tab:blue", "Meteomatics": "tab:purple", "Tomorrow.io": "tab:orange", "WeatherNext 2 (mean)": "tab:green"}
@@ -529,13 +529,13 @@ axs[2].set_ylabel("Surface Temp (°C)")
 plot_col(axs[3], "hrrr_dir_sfc", "HRRR", ".")
 plot_col(axs[3], "meteomatics_wdir_10m", "Meteomatics", ".")
 plot_col(axs[3], "tomorrowio_wind_dir", "Tomorrow.io", ".")
-plot_col(axs[3], "weathernext_wind_dir_10m", "WeatherNext 2 (mean)", "o-")
+plot_col(axs[3], "weathernext_wind_dir_10m", "WeatherNext 2 (mean)", "o")
 plot_obs(axs[3], "winddirection", ".")
 axs[3].set_ylabel("10m Wind Dir (°)")
 
 for ax in axs:
     if ax.get_legend_handles_labels()[0]:
-        ax.legend()
+        ax.legend(loc = "upper left", bbox_to_anchor = (1.01, 1), fontsize = 9)   # legend outside, so it does not cover data
     ax.grid()
     ax.axvline(START, color = "grey")
 
