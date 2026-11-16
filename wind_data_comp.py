@@ -20,7 +20,7 @@ from access_keys import *       # This includes all access keys for model data a
 
 # Coordinates for Boulder, CO (paragliding hill)
 LAT, LON = 40.056731120064015, -105.30018040686129
-LAT, LON = 34.962400, -106.510100 # Sandia
+# LAT, LON = 34.962400, -106.510100 # Sandia
 
 
 
