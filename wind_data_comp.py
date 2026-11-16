@@ -564,4 +564,5 @@ axs[3].axvline(START, color = "grey")
 axs[3].set_xlabel("Time (UTC)")
 plt.suptitle("Boulder, CO: Model comparison")
 plt.tight_layout()
+plt.savefig("example_comparison.png", dpi=150)   # figure shown in the README
 
