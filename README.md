@@ -8,6 +8,10 @@ I built it to see how the new AI weather models compare with conventional and co
 
 *Example run from 16 Nov 2026. Meteomatics is missing because the trial key had expired.*
 
+## Verification: AI vs. physics, ensemble vs. deterministic
+
+A one-month verification of six models against the NREL M2 tower (December 2025) is in [verification/](verification/). Short version: ensembles beat deterministic forecasts by about 1 m/s, WeatherNext 2 was the best model, and all 25 km global models underestimate the Front Range downslope winds by 2–3 m/s.
+
 ## Forecast sources
 
 | Model | Type | Resolution |
