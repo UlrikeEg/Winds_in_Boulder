@@ -67,29 +67,36 @@ def skill_figure(start, end):
     print("saved", f)
 
 
-def timeseries_figure(start, end, lead_h=24):
-    """Observed 80 m wind vs. day-1 forecasts through the month: shows what the global models miss."""
+def timeseries_figure(start, end):
+    """Observed 80 m wind vs. day-1 forecasts. Every valid time comes from exactly one run:
+    the 00 UTC run of the same UTC day (leads 6-24 h for the global ensembles, 1-24 h hourly for HRRR)."""
     from verify import load_obs, load_forecasts
     obs = load_obs()
     fc = load_forecasts(start, end)                               # 80 m (interpolated from 100 m where needed)
-    fc = fc[fc.lead_h.between(lead_h - 18, lead_h + 6)]          # day-1 window: 6 h ... 30 h
+    fc = fc[fc.lead_h.between(6, 24)]
     t0, t1 = start, end + pd.Timedelta(days=1)
     fig, ax = plt.subplots(figsize=(15, 4.8))
     o = obs.obs_hub[t0:t1]
     ax.plot(o.index, o, color=INK, lw=1.2, label="Observed, M2 tower 80 m (hourly)")
-    for m in ["IFS_ENS", "AIFS_ENS"]:
+    for m in ["IFS_ENS", "WN2"]:
         lab, c, _, _ = STYLE[m]
-        g = fc[fc.model == m].groupby("valid_time").ws_hub
-        q = g.quantile([0.1, 0.5, 0.9]).unstack()
-        ax.fill_between(q.index, q[0.1], q[0.9], color=c, alpha=0.2, lw=0)
-        ax.plot(q.index, q[0.5], color=c, lw=1.6, label=f"{lab.split(' (')[0]}: median and 10–90 %")
-    for m in ["HRRR"]:
-        lab, c, _, _ = STYLE[m]
-        g = fc[fc.model == m].groupby("valid_time").ws_hub.mean()
-        ax.plot(g.index, g, color=c, lw=1.6, marker="s", ms=3, label=lab.replace(" (physics, det.)", ""))
+        for init, g in fc[fc.model == m].groupby("init_time"):
+            q = g.groupby("valid_time").ws_hub.quantile([0.1, 0.5, 0.9]).unstack()
+            ax.fill_between(q.index, q[0.1], q[0.9], color=c, alpha=0.2, lw=0)
+            ax.plot(q.index, q[0.5], color=c, lw=1.6, marker="o", ms=3,
+                    label=f"{lab.split(' (')[0]}: median and 10–90 %" if init == fc.init_time.min() else None)
+    hb = D / f"hrrr_box_{start:%Y%m%d}_{end:%Y%m%d}.parquet"
+    if hb.exists():
+        h = pd.read_parquet(hb)
+        h = h[(h.dy == 0) & (h.dx == 0) & (h.init_time.dt.hour == 0) & h.lead_h.between(1, 24)]
+        lab, c, _, _ = STYLE["HRRR"]
+        for init, g in h.groupby("init_time"):
+            ax.plot(g.valid_time, g.ws, color=c, lw=1.4,
+                    label="NOAA HRRR 3 km (hourly)" if init == h.init_time.min() else None)
     ax.set_xlim(t0, t1)
-    ax.set_ylabel("Wind speed [m/s]", color=MUTED)
-    ax.set_title(f"Day-1 forecasts (6–30 h lead) vs. observed hub-height wind, {start:%B %Y}", color=INK, fontsize=11)
+    ax.set_ylabel("Wind speed at 80 m [m/s]", color=MUTED)
+    ax.set_title(f"Day-1 forecasts from each day's 00 UTC run (one run per day, no averaging) vs. observations, {start:%B %Y}",
+                 color=INK, fontsize=11)
     style_ax(ax)
     ax.legend(fontsize=8.5, frameon=False, loc="upper left", ncol=2)
     fig.tight_layout()
