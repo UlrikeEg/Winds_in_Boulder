@@ -10,7 +10,7 @@ I built it to see how the new AI weather models compare with conventional and co
 
 ## Verification: AI vs. physics, ensemble vs. deterministic
 
-A one-month verification of six models against the NREL M2 tower (December 2025) is in [verification/](verification/). Short version: ensembles beat deterministic forecasts by about 1 m/s, WeatherNext 2 was the best model, and all 25 km global models underestimate the Front Range downslope winds by 2–3 m/s.
+A one-month verification of six models against the NREL M2 tower (December 2025) is in [verification/](verification/). Short version: ensembles beat deterministic forecasts by about 1 m/s, and WeatherNext 2 was the best model overall. All 25 km global models underestimate the Front Range downslope winds by 2–3 m/s. HRRR (3 km) gets the wind level and the daily peak right, and scored as a neighbourhood ensemble it beats every physics-based model; it only loses on the exact timing of gust episodes.
 
 ## Forecast sources
 
