@@ -39,7 +39,17 @@ Hub height (80 m), m/s. HRRR only runs to 48 h, so the first column compares all
 | GFS (physics, det.) | 3.69 | 4.16 | −2.3 |
 | AIFS Single (AI, det.) | 3.71 | 4.05 | −3.6 |
 | IFS control (physics, det.) | 3.74 | 4.14 | −3.2 |
-| HRRR 3 km (physics, det.) | 3.99 | – | −0.3 |
+| HRRR 3 km (physics, det.) | 3.99 (3.74 using every hour) | – | −0.3 |
+
+The deterministic models are within about 0.3 m/s of each other, which is not significant for one month. Comparing HRRR and GFS on the same runs and hours (hourly, 80 m), with a 3-day block bootstrap over forecast runs:
+
+| Lead time | MAE HRRR | MAE GFS | HRRR − GFS | 95 % CI |
+|---|---|---|---|---|
+| 1–48 h | 3.74 | 3.62 | +0.12 | −0.38 to +0.49 |
+| 1–12 h | 3.20 | 3.21 | −0.01 | −0.79 to +0.64 |
+| 13–48 h | 3.92 | 3.76 | +0.16 | −0.39 to +0.55 |
+
+On MAE, HRRR and GFS are tied.
 
 **Findings**
 
@@ -50,7 +60,7 @@ Hub height (80 m), m/s. HRRR only runs to 48 h, so the first column compares all
 
 **HRRR sanity checks** (`diag_hrrr.py`, `diag_hrrr2.py`): no time-zone or time-stamp error (shifting the observations by ±10 h does not improve HRRR at ±7 h, and all models are best at 0 to −1 h); of a 7 × 7 neighbourhood around the tower, the nearest grid point (1.8 km away) has the lowest MAE, with a strong west–east gradient (grid points 5–10 km west, in the foothills, are 3–6 m/s too windy); with hourly instead of 6-hourly valid times HRRR's MAE is 3.7 m/s, and 3.1 m/s for the first 6 hours. All runs here are 00 UTC, so HRRR's main strength, hourly updates with short lead times, is not tested.
 
-**Caveats:** one month and one site, 31 runs, no confidence intervals yet (consecutive days are correlated, so small differences may be noise). The Earth Engine pixel for WeatherNext 2 is reported at 39.875 N, 105.125 W, half a grid cell from the ECMWF grid point (40.0 N, 105.25 W); this is probably a pixel-registration convention, but it is not yet verified.
+**Caveats:** one month and one site, 31 runs. Confidence intervals so far only for HRRR vs. GFS; the ranking of the other models still needs them (consecutive days are correlated, so small differences may be noise). The Earth Engine pixel for WeatherNext 2 is reported at 39.875 N, 105.125 W, half a grid cell from the ECMWF grid point (40.0 N, 105.25 W); this is probably a pixel-registration convention, but it is not yet verified.
 
 ## Does HRRR really lose in complex terrain? (`hrrr_tests.py`)
 
