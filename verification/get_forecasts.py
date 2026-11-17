@@ -3,7 +3,7 @@ Extract point forecasts at the M2 tower from dynamical.org cloud archives (Icech
 
 One parquet file per model, long format:
     init_time, lead_h, valid_time, member, ws10, ws_hub
-ws_hub = 100 m wind for the global models, 80 m wind for HRRR (tower top is 80 m).
+ws_hub = native 80 m wind where available (HRRR, GFS), otherwise 100 m (interpolated to 80 m in verify.py).
 Deterministic models get member = 0.
 
 Usage: python get_forecasts.py 2025-12-01 2025-12-31 [model ...]
@@ -30,7 +30,7 @@ MODELS = {   # name: (dataset id, hub-height wind level, ensemble?, max lead h)
     "IFS_ENS":     ("ecmwf-ifs-ens-forecast-15-day-0-25-degree", "100m", True,  168),
     "WN2":         ("earth-engine: weathernext_2_0_0",           "100m", True,  168),   # see extract_wn2_ee
     "AIFS_Single": ("ecmwf-aifs-single-forecast",                "100m", False, 168),
-    "GFS":         ("noaa-gfs-forecast",                         "100m", False, 168),
+    "GFS":         ("noaa-gfs-forecast",                         "80m",  False, 168),
     "HRRR":        ("noaa-hrrr-forecast-48-hour",                "80m",  False, 48),
 }
 

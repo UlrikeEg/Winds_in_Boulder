@@ -56,6 +56,12 @@ def score(fc, obs, var="hub"):
 
 def load_forecasts(start, end):
     fc = pd.concat([pd.read_parquet(f) for f in sorted(D.glob(f"fc_*_{start:%Y%m%d}_{end:%Y%m%d}.parquet"))])
+    # Global models give 100 m wind; interpolate to the 80 m tower height with a power law fitted between
+    # 10 m and 100 m for each forecast (alpha = ln(ws100/ws10)/ln(10)). HRRR and GFS provide 80 m directly.
+    glob_ = ~fc.model.isin(["HRRR", "GFS"])                 # these two provide 80 m directly
+    alpha = (np.log(fc.ws_hub.clip(lower=0.1) / fc.ws10.clip(lower=0.1)) / np.log(10)).clip(0, 0.6)
+    fc["ws_100m_raw"] = fc.ws_hub
+    fc.loc[glob_, "ws_hub"] = fc.ws10[glob_].clip(lower=0.1) * 8 ** alpha[glob_]
     # IFS ENS control member as the physics-based deterministic counterpart of AIFS Single
     ctrl = fc[(fc.model == "IFS_ENS") & (fc.member == 0)].assign(model="IFS_Control")
     return pd.concat([fc, ctrl], ignore_index=True)

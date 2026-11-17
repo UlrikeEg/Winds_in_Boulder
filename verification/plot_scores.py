@@ -47,7 +47,7 @@ def skill_figure(start, end):
         h = by_hour.loc[m]
         b.plot(h.index, h, ls=ls, color=c, lw=2, marker=mk or "o", ms=5, label=lab)
     a.set_ylabel("CRPS (ensembles) / MAE (deterministic)  [m/s]", color=MUTED)
-    a.set_title("Error by lead time, hub height (80 m tower vs. 100 m / 80 m model)", color=INK, fontsize=11)
+    a.set_title("Error by lead time, 80 m (models interpolated from 100 m where needed)", color=INK, fontsize=11)
     a.set_xlabel("Lead time (day)", color=MUTED)
     b.axhline(0, color=INK, lw=0.8)
     b.set_ylabel("Bias: forecast (ens. mean) − observed  [m/s]", color=MUTED)
@@ -69,9 +69,9 @@ def skill_figure(start, end):
 
 def timeseries_figure(start, end, lead_h=24):
     """Observed 80 m wind vs. day-1 forecasts through the month: shows what the global models miss."""
-    from verify import load_obs
+    from verify import load_obs, load_forecasts
     obs = load_obs()
-    fc = pd.concat([pd.read_parquet(f) for f in sorted(D.glob(f"fc_*_{start:%Y%m%d}_{end:%Y%m%d}.parquet"))])
+    fc = load_forecasts(start, end)                               # 80 m (interpolated from 100 m where needed)
     fc = fc[fc.lead_h.between(lead_h - 18, lead_h + 6)]          # day-1 window: 6 h ... 30 h
     t0, t1 = start, end + pd.Timedelta(days=1)
     fig, ax = plt.subplots(figsize=(15, 4.8))
